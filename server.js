@@ -1,31 +1,55 @@
 var express = require('express');
-var app = express();
 var morgan = require('morgan');
 var mongoose = require('mongoose');
+var bodyParser = require('body-parser');
+var ejs = require('ejs');
+var engine = require('ejs-mate');
+var session = require('express-session');
+var cookieParser = require('cookie-parser');
+var flash = require('express-flash');
+var MongoStore = require('connect-mongo/es5')(session);
+var passport = require('passport');
 
-mongoose.connect('', function(err){
-    if(err){
 
-    }else{
-        console.log('Connected to database')
-    }
-})
+var secret = require('./config/secret');
+var User = require('./models/user');
 
+var app = express();
+
+mongoose.connect(secret.database, function(err) {
+  if (err) {
+    console.log(err);
+  } else {
+    console.log("Connected to the database");
+  }
+});
+
+// Middleware
+app.use(express.static(__dirname + '/public'));
 app.use(morgan('dev'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(session({
+  resave: true,
+  saveUninitialized: true,
+  secret: secret.secretKey,
+  store: new MongoStore({ url: secret.database, autoReconnect: true})
+}));
+app.use(flash());
+app.use(passport.initialize());
+app.use(passport.session());
 
-    app.get('/', function(req,res){
-        var n = "Ganesh";
-        res.json('My name is ' + n);
-    });
+app.engine('ejs', engine);
+app.set('view engine', 'ejs');
 
-    app.get('/second', function(req,res){
-        var n = "Kaushik";
-        res.json('My name is ' + n);
-        });
+var mainRoutes = require('./routes/main');
+var userRoutes = require('./routes/user');
 
-    app.listen(4000, function (err){
-    if(err) throw err;
+app.use(mainRoutes);
+app.use(userRoutes);
 
-    console.log("Server is running")
-    
-})
+app.listen(secret.port, function(err) {
+  if (err) throw err;
+  console.log("Server is Running on port " + secret.port);
+});
